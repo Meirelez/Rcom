@@ -5,6 +5,11 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include "alarme.h"
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
@@ -22,8 +27,8 @@ int main(int argc, char** argv)
     int i, sum = 0, speed = 0;
 
     if ( (argc < 2) ||
-         ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-          (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+         ((strcmp("/dev/ttyS10", argv[1])!=0) &&
+          (strcmp("/dev/ttyS11", argv[1])!=0) )) {
         printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
         exit(1);
     }
@@ -78,24 +83,47 @@ int main(int argc, char** argv)
     }
 
     buf[25] = '\n';*/
-    scanf("%s",buf);
-    //printf("%i   \n",strlen(buf)+1);
+   
+
+    
+    //gets(buf);
+    int a;
+    (void) signal(SIGALRM, atende);
+    
+    unsigned char F=0x5d;
+    unsigned char A=0x01;
+    unsigned char C=0x03;
+    unsigned char Bcc1=A^C;
+    sprintf(buf,"%x %x %x %x %x", F,A,C,Bcc1,F);
+   
+ 
     buf[strlen(buf)+1]='\0';
 
     res = write(fd,buf,255);
-   // printf("%d bytes written\n", res);
     while(STOP==FALSE){
-    res=read(fd,buf,1);
-    strncat(buffer, buf, 1);
-    if (buf[0]=='\0')STOP=TRUE;
+
+        while(1)
+        {
+            //a=alarme();
+            a=alarm(3);
+            res=read(fd,buf,1);
+            alarm(0);
+            printf("%d\n",a);
+
+            if(a==0)
+            {
+                printf("%d\n",a);
+                close(fd);
+                return -1;
+            }
+        }
+
+        strncat(buffer, buf, 1);
+
+        if (buf[0]=='\0')STOP=TRUE;
     }
     printf("%s \n",buffer);
-
-
-    /*
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar
-    o indicado no guião
-    */
+    
 
     sleep(1);
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {

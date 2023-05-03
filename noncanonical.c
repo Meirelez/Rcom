@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <string.h>
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -15,13 +16,13 @@ volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd,c, res, m=0;
     struct termios oldtio,newtio;
-    char buf[255], buffer[255]="";
+    char buf[255], buffer[255]="", buff[5][255];
 
     if ( (argc < 2) ||
-         ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-          (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+         ((strcmp("/dev/ttyS10", argv[1])!=0) &&
+          (strcmp("/dev/ttyS11", argv[1])!=0) )) {
         printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
         exit(1);
     }
@@ -66,22 +67,76 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-
-    while (STOP==FALSE) {       /* loop for input */
-        res = read(fd,buf,1);   /* returns after 5 chars have been input */
-        //buf[res]=0;               /* so we can printf... */
-        //printf("%c", buf[0]);
+    
+    while (STOP==FALSE) {       
+        res = read(fd,buf,1);  
+        
+        if(buf[0]==' ')
+        {
+            strcpy(&buff[m],buffer);
+            strcpy(buffer,"");
+            m++;    
+            continue;
+        }
+      
         strncat(buffer, buf, 1);
-        if (buf[0]=='\0') STOP=TRUE;
+        if (buf[0]=='\0')
+        { 
+            strcpy(&buff[m],buffer);
+            m++;   
+            STOP=TRUE;
+        }    
     }
-    //buffer[strlen(buffer)+1]='\0';
-    printf("%s\n",buffer);
 
+
+    if(strcmp(&buff[0],"5c")!=0)
+    {
+        printf("0");
+        close(fd);
+        return -1;
+    }
+
+    if(strcmp(&buff[1],"1")!=0)
+    {
+        printf("1");
+        close(fd);
+        return -1;
+    }
+
+    if(strcmp(&buff[2],"3")!=0)
+    {
+        printf("2");
+        close(fd);
+        return -1;
+    }
+
+    if(strcmp(&buff[3],"2")!=0)
+    {
+        printf("3");
+        close(fd);
+        return -1;
+    }
+
+    if(strcmp(&buff[4],"5c")!=0)
+    {
+        printf("4");
+        close(fd);
+        return -1;
+    }
+
+    unsigned char C= 0x07;
+    //unsigned char Bcc1= buff[1]^C;
+    sprintf(buffer, "%s %s %x %s %s",buff[0],buff[1],C,buff[3],buff[4]);
+    
+    for(int i=0; i<m; i++)
+    {
+        printf("%s\n",buff[i]);    
+    }
+
+    buffer[strlen(buffer)+1]='\0';
     write(fd,buffer,255);
 
-    /*
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
-    */
+
     sleep(1);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
